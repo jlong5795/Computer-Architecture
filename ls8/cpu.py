@@ -2,6 +2,11 @@
 
 import sys
 
+HLT = 0b00000001
+LDI = 0b10000010
+PRN = 0b01000111
+MUL = 0b10100010
+
 class CPU:
     """Main CPU class."""
 
@@ -9,9 +14,14 @@ class CPU:
         """Construct a new CPU."""
         self.pc = 0 # program counter
         # register is where you store what you retrieved from ram(memory)
-        self.register = [0] * 8 # variable R0-R7
+        self.reg = [0] * 8 # variable R0-R7
         # ram is running memory
         self.ram = [0] * 256 # ram is memory
+        # Set up branch table
+        self.branch_table = {}
+        self.branch_table[LDI] = self.handle_ldi
+        self.branch_table[PRN] = self.handle_prn
+        self.branch_table[MUL] = self.handle_mul
 
     def ram_read(self, address):
         # Memory_Address_Register = MAR
@@ -26,8 +36,21 @@ class CPU:
         # takes an address and a value to write to it
         self.ram[address] = value
 
+    def handle_ldi(self):
+        self.reg[self.ram_read(self.pc + 1)] = self.ram_read(self.pc + 2)
+        self.pc += 3
 
+    def handle_prn(self):
+        print(self.reg[self.ram_read(self.pc + 1)])
+        self.pc += 2
 
+    def handle_mul(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("MUL", reg_1, reg_2)
+        self.pc += 3
+    
     def load(self):
         """Load a program into memory."""
 
@@ -35,9 +58,9 @@ class CPU:
         filename = sys.argv[1]
         print("filename", filename)
 
-
+        address = 0
         with open(filename) as f:
-            for address, line in enumerate(f):
+            for line in f:
                 line = line.split("#")
             
                 try:
@@ -47,6 +70,7 @@ class CPU:
                     continue
 
                 self.ram[address] = value
+                address += 1
 
 
 
@@ -83,29 +107,34 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
+
         running = True
 
         while running:
             # instruction register
             ir = self.ram[self.pc]
             
-            if ir == self.ram[0]:
+            # look at op codes
+            if ir == "LDI":
                 # arranges data from bucket
                 # where will you put it in your pocket?
                 # this is putting it in your pocket
                 # "where" is the reg_num: it is  the indice of the reg array
                 reg_num = self.ram[self.pc + 1]
                 value = self.ram[self.pc + 2]
-                self.register[reg_num] = value
+                self.reg[reg_num] = value
                 self.pc += 3
             
             # print instruction
-            elif ir == self.ram[3]: 
+            elif ir == "PRN": 
                 reg_num = self.ram[self.pc + 1]
-                print(self.register[reg_num])
+                print(self.reg[reg_num])
                 self.pc += 2
             
-            elif ir == self.ram[5]:
+            elif ir == "MUL":
+                self.handle_mul()
+
+            elif ir == "HLT":
                 running = False
                 self.pc += 1
             
