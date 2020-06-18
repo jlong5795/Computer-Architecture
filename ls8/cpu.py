@@ -6,6 +6,8 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
 
 class CPU:
     """Main CPU class."""
@@ -22,6 +24,13 @@ class CPU:
         self.branch_table[LDI] = self.handle_ldi
         self.branch_table[PRN] = self.handle_prn
         self.branch_table[MUL] = self.handle_mul
+        self.branch_table[HLT] = self.handle_hlt
+        self.branch_table[PUSH] = self.handle_push
+        self.branch_table[POP] = self.handle_pop
+        
+        # stack pointer is in register 7
+        self.SP = 7
+        self.reg[self.SP] = 0xf4
 
     def ram_read(self, address):
         # Memory_Address_Register = MAR
@@ -35,6 +44,43 @@ class CPU:
         
         # takes an address and a value to write to it
         self.ram[address] = value
+
+    def handle_push(self):
+        # decrement the SP
+        self.reg[self.SP] -= 1
+
+        # get the value we want to store from the register
+        reg_num = self.ram_read(self.pc + 1)
+        # print('Register', reg_num)
+        value = self.reg[reg_num]
+
+        # get the place to store it
+        top_of_stack = self.reg[self.SP]
+
+        # store it
+        # self.ram_write(value, top_of_stack) same as below
+        self.ram[top_of_stack] = value
+
+        # increment the PC
+        self.pc += 2
+
+    def handle_pop(self):
+        # check if stack is empty
+        if self.reg[self.SP] == 0xf4:
+            return print('The stack is empty')
+        
+        # get the location of the value to pop
+        value_index = self.ram_read(self.pc + 1)
+
+        # sets the value to the top of the stack with the pointer
+        self.reg[value_index] = self.ram[self.reg[self.SP]]
+
+        # increment the pointer
+        self.reg[self.SP] += 1
+
+        # increment the PC
+        self.pc += 2
+
 
     def handle_ldi(self):
         self.reg[self.ram_read(self.pc + 1)] = self.ram_read(self.pc + 2)
@@ -50,6 +96,11 @@ class CPU:
 
         self.alu("MUL", reg_1, reg_2)
         self.pc += 3
+
+    def handle_hlt(self):
+        self.pc += 1
+        self.running = False
+        return self.running
     
     def load(self):
         """Load a program into memory."""
@@ -71,7 +122,6 @@ class CPU:
 
                 self.ram[address] = value
                 address += 1
-
 
 
     def alu(self, op, reg_a, reg_b):
@@ -107,38 +157,53 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-
-        running = True
-
-        while running:
-            # instruction register
+        # instrution register
+        self.running = True
+        while self.running:
+            # grab the current instruction
             ir = self.ram[self.pc]
-            
-            # look at op codes
-            if ir == "LDI":
-                # arranges data from bucket
-                # where will you put it in your pocket?
-                # this is putting it in your pocket
-                # "where" is the reg_num: it is  the indice of the reg array
-                reg_num = self.ram[self.pc + 1]
-                value = self.ram[self.pc + 2]
-                self.reg[reg_num] = value
-                self.pc += 3
-            
-            # print instruction
-            elif ir == "PRN": 
-                reg_num = self.ram[self.pc + 1]
-                print(self.reg[reg_num])
-                self.pc += 2
-            
-            elif ir == "MUL":
-                self.handle_mul()
-
-            elif ir == "HLT":
-                running = False
-                self.pc += 1
-            
+            # if we have an instruction that matches run it
+            if ir in self.branch_table:
+                self.branch_table[ir]()
+            # if not print error
             else:
-                print(f'Unknown instruction{ir} at address {self.pc}')
+                print(f'Unknown instruction: {ir}, at address PC: {self.pc}')
                 sys.exit(1)
+
+    # def run(self):
+    #     """Run the CPU."""
+
+    #     running = True
+
+    #     while running:
+    #         # instruction register
+    #         ir = self.ram[self.pc]
+            
+    #         # look at op codes
+    #         if ir == "LDI":
+    #             # arranges data from bucket
+    #             # where will you put it in your pocket?
+    #             # this is putting it in your pocket
+    #             # "where" is the reg_num: it is  the indice of the reg array
+    #             reg_num = self.ram[self.pc + 1]
+    #             value = self.ram[self.pc + 2]
+    #             self.reg[reg_num] = value
+    #             self.pc += 3
+            
+    #         # print instruction
+    #         elif ir == "PRN": 
+    #             reg_num = self.ram[self.pc + 1]
+    #             print(self.reg[reg_num])
+    #             self.pc += 2
+            
+    #         elif ir == "MUL":
+    #             self.handle_mul()
+
+    #         elif ir == "HLT":
+    #             running = False
+    #             self.pc += 1
+            
+    #         else:
+    #             print(f'Unknown instruction{ir} at address {self.pc}')
+    #             sys.exit(1)
 
