@@ -8,6 +8,9 @@ PRN = 0b01000111
 MUL = 0b10100010
 PUSH = 0b01000101
 POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001
+ADD = 0b10100000
 
 class CPU:
     """Main CPU class."""
@@ -20,13 +23,18 @@ class CPU:
         # ram is running memory
         self.ram = [0] * 256 # ram is memory
         # Set up branch table
-        self.branch_table = {}
-        self.branch_table[LDI] = self.handle_ldi
-        self.branch_table[PRN] = self.handle_prn
-        self.branch_table[MUL] = self.handle_mul
-        self.branch_table[HLT] = self.handle_hlt
-        self.branch_table[PUSH] = self.handle_push
-        self.branch_table[POP] = self.handle_pop
+        self.branch_table = {
+            ADD: self.handle_add,
+            CALL: self.handle_call,
+            HLT: self.handle_hlt,
+            LDI: self.handle_ldi,
+            MUL: self.handle_mul,
+            POP: self.handle_pop,
+            PRN: self.handle_prn,
+            PUSH: self.handle_push,
+            RET: self.handle_ret
+        }
+        
         
         # stack pointer is in register 7
         self.SP = 7
@@ -44,6 +52,41 @@ class CPU:
         
         # takes an address and a value to write to it
         self.ram[address] = value
+
+    def handle_call(self):
+        # set the address to return to
+        return_addy = self.pc + 2
+
+        # push onto the stack
+        self.reg[self.SP] -= 1
+        self.ram[self.reg[self.SP]] = return_addy
+
+        # get the address to call
+        reg_num = self.ram[self.pc + 1]
+        sub_addy = self.reg[reg_num]
+
+        # call it
+        self.pc = sub_addy
+
+    def handle_ret(self):
+        # get the address of the thing to remove
+        return_index = self.ram[self.pc + 1]
+
+        # sets the value to the top of the stack with the pointer
+        self.reg[return_index] = self.ram[self.reg[self.SP]]
+
+        # increment the pointer
+        self.reg[self.SP] += 1
+
+        # return the counter to where we were before the call(after the call instruction)
+        self.pc = self.reg[return_index]
+
+    def handle_add(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("ADD", reg_1, reg_2)
+        self.pc += 3
 
     def handle_push(self):
         # decrement the SP
