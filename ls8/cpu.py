@@ -229,6 +229,8 @@ class CPU:
                 else:
                     register_a[i] = 1
         elif op == "SHL":
+            slice_value = self.ram_read(register_b)
+            register_a = register_a[slice_value:]
             
 
         else:
