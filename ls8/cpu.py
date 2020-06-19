@@ -11,6 +11,15 @@ POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
 ADD = 0b10100000
+CMP = 0b10100111
+JEQ = 0b01010101
+JNE = 0b01010110
+JMP = 0b01010100
+AND = 0b10101000
+NOT = 0b01101001
+OR = 0b10101010
+XOR = 0b10101011
+SHL = 0b10101100
 
 class CPU:
     """Main CPU class."""
@@ -25,16 +34,25 @@ class CPU:
         # Set up branch table
         self.branch_table = {
             ADD: self.handle_add,
+            AND: self.handle_and,
             CALL: self.handle_call,
+            CMP: self.handle_cmp,
             HLT: self.handle_hlt,
+            JEQ: self.handle_jeq,
+            JMP: self.handle_jmp,
+            JNE: self.handle_jne,
             LDI: self.handle_ldi,
             MUL: self.handle_mul,
+            NOT: self.handle_not,
+            OR: self.handle_or,
             POP: self.handle_pop,
             PRN: self.handle_prn,
             PUSH: self.handle_push,
-            RET: self.handle_ret
+            RET: self.handle_ret,
+            SHL: self.handle_shl,
+            XOR: self.handle_xor
         }
-        
+        self.fl = 0b00000000
         
         # stack pointer is in register 7
         self.SP = 7
@@ -169,12 +187,50 @@ class CPU:
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
+        register_a = self.reg[reg_a]
+        register_b = self.reg[reg_b]
         if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
+            register_a += register_b
         #elif op == "SUB": etc
         elif op == "MUL":
-            self.reg[reg_a] *= self.reg[reg_b]
+            register_a *= register_b
+        elif op == "CMP":
+            if register_a > register_b:
+                # 100
+                self.fl = 0b00000100
+            elif register_a < register_b:
+                # 010
+                self.fl = 0b00000010
+            elif register_a == register_b:
+                # 001
+                self.fl = 0b00000001
+            else:
+                # 000
+                self.fl = 0b00000000
+        elif op == "AND":
+            for i in range(len(register_a) - 1):
+                register_a[i] = register_a[i] * register_b[i]
+        elif op == "NOT":
+            for each in register_a:
+                if each == 0:
+                    each = 1
+                else:
+                    each = 0
+        elif op == "OR":
+            for i in range(len(register_a) - 1):
+                if register_a[i] and register_b[i] == 0:
+                    register_a[i] = 0
+                else:
+                    register_a[i] = 1
+        elif op == "XOR":
+            for i in range(len(register_a) - 1):
+                if register_a[i] == register_b[i]:
+                    register_a[i] = 0
+                else:
+                    register_a[i] = 1
+        elif op == "SHL":
+            
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -213,40 +269,55 @@ class CPU:
                 print(f'Unknown instruction: {ir}, at address PC: {self.pc}')
                 sys.exit(1)
 
-    # def run(self):
-    #     """Run the CPU."""
+### Sprint Challenge ###
 
-    #     running = True
 
-    #     while running:
-    #         # instruction register
-    #         ir = self.ram[self.pc]
-            
-    #         # look at op codes
-    #         if ir == "LDI":
-    #             # arranges data from bucket
-    #             # where will you put it in your pocket?
-    #             # this is putting it in your pocket
-    #             # "where" is the reg_num: it is  the indice of the reg array
-    #             reg_num = self.ram[self.pc + 1]
-    #             value = self.ram[self.pc + 2]
-    #             self.reg[reg_num] = value
-    #             self.pc += 3
-            
-    #         # print instruction
-    #         elif ir == "PRN": 
-    #             reg_num = self.ram[self.pc + 1]
-    #             print(self.reg[reg_num])
-    #             self.pc += 2
-            
-    #         elif ir == "MUL":
-    #             self.handle_mul()
+    def handle_cmp(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
 
-    #         elif ir == "HLT":
-    #             running = False
-    #             self.pc += 1
-            
-    #         else:
-    #             print(f'Unknown instruction{ir} at address {self.pc}')
-    #             sys.exit(1)
+        self.alu("CMP", reg_1, reg_2)
+        self.pc += 3
+        
+    def handle_jeq(self):
+        if self.fl == 0b00000001:
+            self.pc = self.reg[self.ram[self.pc + 1]]
+        else: 
+            self.pc += 2
 
+    def handle_jmp(self):
+            self.pc = self.reg[self.ram[self.pc + 1]]
+
+    def handle_jne(self):
+        if self.fl != 0b00000001:
+            self.pc = self.reg[self.ram[self.pc + 1]]
+        else: 
+            self.pc += 2
+### STRETCH ###
+    def handle_and(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("AND", reg_1, reg_2)
+        self.pc += 3
+    
+    def handle_not(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("NOT", reg_1, reg_2)
+        self.pc += 2
+
+    def handle_or(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("OR", reg_1, reg_2)
+        self.pc += 3
+
+    def handle_xor(self):
+        reg_1 = self.ram_read(self.pc + 1)
+        reg_2 = self.ram_read(self.pc + 2)
+
+        self.alu("XOR", reg_1, reg_2)
+        self.pc += 3
